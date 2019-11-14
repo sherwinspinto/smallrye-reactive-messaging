@@ -9,6 +9,7 @@ import java.util.Collections;
 import java.util.List;
 
 import javax.enterprise.inject.se.SeContainer;
+import javax.enterprise.inject.spi.DefinitionException;
 import javax.enterprise.inject.spi.DeploymentException;
 
 import org.eclipse.microprofile.reactive.messaging.Message;
@@ -16,17 +17,7 @@ import org.eclipse.microprofile.reactive.streams.operators.SubscriberBuilder;
 import org.junit.Test;
 
 import io.reactivex.Flowable;
-import io.smallrye.reactive.messaging.beans.BeanConsumingMessagesAndReturningACompletionStageOfSomething;
-import io.smallrye.reactive.messaging.beans.BeanConsumingMessagesAndReturningACompletionStageOfVoid;
-import io.smallrye.reactive.messaging.beans.BeanConsumingMessagesAndReturningSomething;
-import io.smallrye.reactive.messaging.beans.BeanConsumingMessagesAndReturningVoid;
-import io.smallrye.reactive.messaging.beans.BeanConsumingPayloadsAndReturningACompletionStageOfSomething;
-import io.smallrye.reactive.messaging.beans.BeanConsumingPayloadsAndReturningACompletionStageOfVoid;
-import io.smallrye.reactive.messaging.beans.BeanConsumingPayloadsAndReturningSomething;
-import io.smallrye.reactive.messaging.beans.BeanConsumingPayloadsAndReturningVoid;
-import io.smallrye.reactive.messaging.beans.BeanReturningASubscriberOfMessages;
-import io.smallrye.reactive.messaging.beans.BeanReturningASubscriberOfMessagesButDiscarding;
-import io.smallrye.reactive.messaging.beans.BeanReturningASubscriberOfPayloads;
+import io.smallrye.reactive.messaging.beans.*;
 
 public class SubscriberShapeTest extends WeldTestBaseWithoutTails {
 
@@ -92,17 +83,18 @@ public class SubscriberShapeTest extends WeldTestBaseWithoutTails {
             fail("Expected failure - method validation should have failed");
         } catch (DeploymentException e) {
             // Check we have the right cause
-            assertThat(e).hasMessageContaining("Invalid method").hasMessageContaining("acknowledgment");
+            assertThat(e).hasCauseInstanceOf(DefinitionException.class);
         }
     }
 
     @Test
     public void testThatWeCanConsumePayloadsFromAMethodReturningSomething() {
         initializer.addBeanClasses(BeanConsumingPayloadsAndReturningSomething.class);
-        initialize();
-        BeanConsumingPayloadsAndReturningSomething collector = container.getBeanManager()
-                .createInstance().select(BeanConsumingPayloadsAndReturningSomething.class).get();
-        assertThat(collector.payloads()).isEqualTo(EXPECTED);
+        try {
+            initialize();
+        } catch (DeploymentException e) {
+            assertThat(e).hasCauseInstanceOf(DefinitionException.class);
+        }
     }
 
     @Test
@@ -130,23 +122,21 @@ public class SubscriberShapeTest extends WeldTestBaseWithoutTails {
     @Test
     public void testThatWeCanConsumeMessagesFromAMethodReturningACompletionStageOfSomething() {
         initializer.addBeanClasses(BeanConsumingMessagesAndReturningACompletionStageOfSomething.class);
-        initialize();
-        BeanConsumingMessagesAndReturningACompletionStageOfSomething collector = container.getBeanManager()
-                .createInstance().select(BeanConsumingMessagesAndReturningACompletionStageOfSomething.class).get();
-        await().until(() -> collector.payloads().size() == EXPECTED.size());
-        assertThat(collector.payloads()).isEqualTo(EXPECTED);
-        collector.close();
+        try {
+            initialize();
+        } catch (DeploymentException e) {
+            assertThat(e).hasCauseInstanceOf(DefinitionException.class);
+        }
     }
 
     @Test
     public void testThatWeCanConsumePayloadsFromAMethodReturningACompletionStageOfSomething() {
         initializer.addBeanClasses(BeanConsumingPayloadsAndReturningACompletionStageOfSomething.class);
-        initialize();
-        BeanConsumingPayloadsAndReturningACompletionStageOfSomething collector = container.getBeanManager()
-                .createInstance().select(BeanConsumingPayloadsAndReturningACompletionStageOfSomething.class).get();
-        await().until(() -> collector.payloads().size() == EXPECTED.size());
-        assertThat(collector.payloads()).isEqualTo(EXPECTED);
-        collector.close();
+        try {
+            initialize();
+        } catch (DeploymentException e) {
+            assertThat(e).hasCauseInstanceOf(DefinitionException.class);
+        }
     }
 
     @SuppressWarnings("unchecked")

@@ -5,6 +5,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.Collections;
 import java.util.List;
 
+import javax.enterprise.inject.spi.DefinitionException;
+import javax.enterprise.inject.spi.DeploymentException;
+
 import org.junit.Test;
 
 import io.smallrye.reactive.messaging.beans.IncomingOnlyBeanProducingACompletableStage;
@@ -30,11 +33,11 @@ public class IncomingOnlyCompletionStageMethodTest extends WeldTestBaseWithoutTa
     @Test
     public void testIncomingOnlyBeanProducingACompletionStageNonVoid() {
         addBeanClass(IncomingOnlyBeanProducingANonVoidCompletableStage.class);
-        initialize();
-        IncomingOnlyBeanProducingANonVoidCompletableStage collector = container
-                .select(IncomingOnlyBeanProducingANonVoidCompletableStage.class).get();
-        assertThat(collector.list()).isNotEmpty()
-                .containsExactly(1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10);
+        try {
+            initialize();
+        } catch (DeploymentException e) {
+            assertThat(e).hasCauseInstanceOf(DefinitionException.class);
+        }
     }
 
 }

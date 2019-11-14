@@ -3,6 +3,8 @@ package io.smallrye.reactive.messaging;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Supplier;
 
+import javax.enterprise.inject.spi.DefinitionException;
+
 import org.apache.commons.lang3.ClassUtils;
 import org.eclipse.microprofile.reactive.messaging.Acknowledgment;
 import org.eclipse.microprofile.reactive.messaging.Message;
@@ -94,8 +96,8 @@ public class MediatorConfigurationSupport {
         // 2. Subscriber<I> method() or SubscriberBuilder<I, ?> method()
         // 3. CompletionStage<?> method(Message<I> m)
         // 4. CompletionStage<?> method(I i)
-        // 5. void/? method(Message<I> m) - this signature has been dropped as it forces blocking acknowledgment. Recommendation: use case 3.
-        // 6. void/? method(I i)
+        // 5. void method(Message<I> m) - this signature has been dropped as it forces blocking acknowledgment. Recommendation: use case 3.
+        // 6. void method(I i)
 
         if (ClassUtils.isAssignable(returnType, Subscriber.class)
                 || ClassUtils.isAssignable(returnType, SubscriberBuilder.class)) {
@@ -125,6 +127,10 @@ public class MediatorConfigurationSupport {
                 throw getIncomingError("when returning a CompletionStage, one parameter is expected");
             }
 
+            if (returnTypeAssignable.check(Void.class, 0) == GenericTypeAssignable.Result.NotAssignable) {
+                throw getIncomingError("only CompletionStage<Void> is supported");
+            }
+
             Class<?> param = parameterTypes[0];
 
             return new ValidationOutput(production,
@@ -133,7 +139,7 @@ public class MediatorConfigurationSupport {
                             : MediatorConfiguration.Consumption.PAYLOAD);
         }
 
-        // Case 5 and 6, void | x with 1 parameter
+        // Case 5 and 6, void with 1 parameter
         if (parameterTypes.length == 1) {
             // TODO Revisit it with injected parameters
             Class<?> param = parameterTypes[0];
@@ -141,6 +147,10 @@ public class MediatorConfigurationSupport {
             MediatorConfiguration.Consumption consumption = ClassUtils.isAssignable(param, Message.class)
                     ? MediatorConfiguration.Consumption.MESSAGE
                     : MediatorConfiguration.Consumption.PAYLOAD;
+
+            if (returnType != Void.TYPE) {
+                throw getIncomingError("The signature is not supported, you can only return 'void'");
+            }
 
             // Detect the case 5 that is not supported (anymore, decision taken during the MP reactive hangout Sept. 11th, 2018)
             if (consumption == MediatorConfiguration.Consumption.MESSAGE) {
@@ -431,16 +441,16 @@ public class MediatorConfigurationSupport {
         return null;
     }
 
-    private IllegalArgumentException getOutgoingError(String message) {
-        return new IllegalArgumentException("Invalid method annotated with @Outgoing: " + methodAsString + " - " + message);
+    private DefinitionException getOutgoingError(String message) {
+        return new DefinitionException("Invalid method annotated with @Outgoing: " + methodAsString + " - " + message);
     }
 
-    private IllegalArgumentException getIncomingError(String message) {
-        return new IllegalArgumentException("Invalid method annotated with @Incoming: " + methodAsString + " - " + message);
+    private DefinitionException getIncomingError(String message) {
+        return new DefinitionException("Invalid method annotated with @Incoming: " + methodAsString + " - " + message);
     }
 
-    private IllegalArgumentException getIncomingAndOutgoingError(String message) {
-        return new IllegalArgumentException(
+    private DefinitionException getIncomingAndOutgoingError(String message) {
+        return new DefinitionException(
                 "Invalid method annotated with @Incoming and @Outgoing: " + methodAsString + " - " + message);
     }
 
