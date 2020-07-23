@@ -204,7 +204,7 @@ public class KafkaSource<K, V> {
                         return this.consumer.subscribe(topics);
                     }
                 })
-                .map(rec -> new IncomingKafkaRecord<>(consumer, rec, failureHandler))
+                .map(rec -> new IncomingKafkaRecord<>(consumer, rec, failureHandler, config.getCloudEvents()))
                 .onFailure().invoke(this::reportFailure);
     }
 
