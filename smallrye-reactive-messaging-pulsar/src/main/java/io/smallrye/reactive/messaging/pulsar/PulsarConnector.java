@@ -19,7 +19,7 @@ import io.smallrye.reactive.messaging.annotations.ConnectorAttribute;
  */
 @ApplicationScoped
 @Connector(PulsarConnector.CONNECTOR_NAME)
-@ConnectorAttribute(name = "topicNames", type = "string", mandatory = true, direction = ConnectorAttribute.Direction.INCOMING_AND_OUTGOING, description = "The list pulsar topic being consumed from or produced to")
+@ConnectorAttribute(name = "topicNames", type = "string", mandatory = true, direction = ConnectorAttribute.Direction.INCOMING, description = "The list pulsar topic being consumed from or produced to")
 @ConnectorAttribute(name = "subscriptionName", type = "string", mandatory = true, direction = ConnectorAttribute.Direction.INCOMING, description = "The name of the supscription")
 @ConnectorAttribute(name = "subscriptionType", type = "org.apache.pulsar.client.api.SubscriptionType", mandatory = true, direction = ConnectorAttribute.Direction.INCOMING, description = "The subscription type, possible values Exclusive/Shared/Failover/Key_Shared")
 @ConnectorAttribute(name = "patternAutoDiscoveryPeriod", type = "double", direction = ConnectorAttribute.Direction.INCOMING, description = "")
@@ -43,6 +43,8 @@ import io.smallrye.reactive.messaging.annotations.ConnectorAttribute;
 @ConnectorAttribute(name = "autoUpdatePartitions", type = "boolean", direction = ConnectorAttribute.Direction.INCOMING, description = "")
 //@ConnectorAttribute(name = "properties", type = "java.util.Map", direction = ConnectorAttribute.Direction.INCOMING, description = "")
 @ConnectorAttribute(name = "subscriptionMode", type = "org.apache.pulsar.client.api.SubscriptionMode", direction = ConnectorAttribute.Direction.INCOMING, description = "")
+@ConnectorAttribute(name = "schemaType", type = "io.smallrye.reactive.messaging.pulsar.PulsarSource.SCHEMA_TYPE", direction = ConnectorAttribute.Direction.INCOMING, description = "")
+@ConnectorAttribute(name = "schema", type = "string", direction = ConnectorAttribute.Direction.INCOMING, description = "")
 public class PulsarConnector implements IncomingConnectorFactory, OutgoingConnectorFactory {
     static final String CONNECTOR_NAME = "smallrye-pulsar";
 
@@ -51,7 +53,7 @@ public class PulsarConnector implements IncomingConnectorFactory, OutgoingConnec
         PulsarConnectorIncomingConfiguration pcic = new PulsarConnectorIncomingConfiguration(config);
         PulsarClient pulsarClient = PulsarClientManager.getInstance().getPulsarClient(pcic);
         PulsarSource<? extends Message<?>> pulsarSource = new PulsarSource<IncomingPulsarMessage<?>>(pulsarClient, pcic);
-        return ReactiveStreams.fromPublisher(pulsarSource.source());
+        return ReactiveStreams.fromPublisher(pulsarSource.sourceUsingMessageListener());
     }
 
     @Override

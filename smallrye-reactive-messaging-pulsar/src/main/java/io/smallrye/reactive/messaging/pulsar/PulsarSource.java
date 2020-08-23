@@ -3,7 +3,10 @@ package io.smallrye.reactive.messaging.pulsar;
 import java.util.*;
 import java.util.concurrent.CompletionStage;
 
-import org.apache.pulsar.client.api.*;
+import org.apache.pulsar.client.api.Consumer;
+import org.apache.pulsar.client.api.ConsumerBuilder;
+import org.apache.pulsar.client.api.PulsarClient;
+import org.apache.pulsar.client.api.Schema;
 import org.apache.pulsar.client.impl.ConsumerBuilderImpl;
 import org.apache.pulsar.client.impl.PulsarClientImpl;
 import org.eclipse.microprofile.config.Config;
@@ -11,15 +14,28 @@ import org.eclipse.microprofile.config.Config;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
+import io.smallrye.mutiny.subscription.MultiEmitter;
 
 /**
- * @author sherwinpinto
+ * @author Sherwin Pinto
  */
 public class PulsarSource<T> {
     private final PulsarClient pulsarClient;
     private final PulsarConnectorIncomingConfiguration pcic;
     private static final Set<String> ALLOWABLE_PULSAR_CONSUMER_PROPS = new HashSet<>();
     private static final String SPECIAL_TYPE_FIELD_NAME_TOPICNAMES = "topicNames";
+    private static final String IN = "";
+    private static final String OUT = "";
+
+    public static enum SCHEMA_TYPE {
+        AVRO,
+        PROTOBUF,
+        JSON,
+        BYTES;
+
+        private SCHEMA_TYPE() {
+        }
+    }
 
     static {
         ALLOWABLE_PULSAR_CONSUMER_PROPS.add("topicNames");
@@ -60,16 +76,40 @@ public class PulsarSource<T> {
         this.pcic = pcic;
     }
 
-    private Uni<Consumer<byte[]>> createConsumer() {
+    private Uni<Consumer<T>> createConsumer() {
         return Uni.createFrom().completionStage(() -> {
-            CompletionStage<Consumer<byte[]>> consumer = buildConsumer()
+            CompletionStage<Consumer<T>> consumer = buildConsumer()
                     .subscribeAsync();
             return consumer;
         });
     }
 
+    private Uni<Consumer<T>> createConsumerWithMessageListener(final MultiEmitter<IncomingPulsarMessage<T>> multiEmitter) {
+        return Uni.createFrom().completionStage(() -> {
+            CompletionStage<Consumer<T>> consumer = buildConsumer()
+                    .messageListener(new GenericMessageListener(multiEmitter))
+                    .subscribeAsync();
+            return consumer;
+        });
+    }
+
+    protected Multi<IncomingPulsarMessage<T>> sourceUsingMessageListener() {
+
+        Multi<IncomingPulsarMessage<T>> multi = Multi.createFrom().emitter(multiEmitter -> {
+            createConsumerWithMessageListener((MultiEmitter<IncomingPulsarMessage<T>>) multiEmitter)
+                    .subscribe().with(
+                            success -> {
+                                System.out.println(success);
+                            },
+                            failure -> {
+                                System.out.println(failure);
+                            });
+        });
+        return multi;
+    }
+
     protected Multi<IncomingPulsarMessage<T>> source() {
-        Uni<Consumer<byte[]>> consumerUni = createConsumer();
+        Uni<Consumer<T>> consumerUni = createConsumer();
         Multi<IncomingPulsarMessage<T>> multi = Multi.createFrom().uni(consumerUni)
                 .onItem().transformToMultiAndConcatenate(pulsarConsumer -> Uni.createFrom().item(() -> {
                     try {
@@ -99,6 +139,7 @@ public class PulsarSource<T> {
                     }
                 });
 
+        //        Schema schema = handleSchema();
         ConsumerBuilder consumerBuilder = new ConsumerBuilderImpl((PulsarClientImpl) pulsarClient, Schema.BYTES);
         consumerBuilder.loadConf(configMap);
         return consumerBuilder;
@@ -116,5 +157,23 @@ public class PulsarSource<T> {
                 returnValue = value;
         }
         return returnValue;
+    }
+
+    private Schema handleSchema() {
+        Schema result = Schema.BYTES;
+        try {
+            switch (pcic.getSchemaType().get()) {
+                case AVRO: {
+                    result = pcic.getSchema().isPresent() ? Schema.AVRO(Class.forName(pcic.getSchema().get())) : null;
+                    break;
+                }
+                default:
+                    result = Schema.BYTES;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return result;
     }
 }
