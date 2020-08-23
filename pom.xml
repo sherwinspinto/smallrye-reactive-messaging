@@ -118,6 +118,7 @@
 
     <module>tck</module>
     <module>documentation</module>
+      <module>smallrye-reactive-messaging-pulsar</module>
   </modules>
 
   <dependencyManagement>
