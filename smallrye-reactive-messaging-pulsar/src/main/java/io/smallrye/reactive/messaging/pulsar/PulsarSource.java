@@ -3,13 +3,12 @@ package io.smallrye.reactive.messaging.pulsar;
 import java.util.*;
 import java.util.concurrent.CompletionStage;
 
-import org.apache.pulsar.client.api.Consumer;
-import org.apache.pulsar.client.api.ConsumerBuilder;
-import org.apache.pulsar.client.api.PulsarClient;
-import org.apache.pulsar.client.api.Schema;
+import org.apache.pulsar.client.api.*;
 import org.apache.pulsar.client.impl.ConsumerBuilderImpl;
 import org.apache.pulsar.client.impl.PulsarClientImpl;
 import org.eclipse.microprofile.config.Config;
+import org.eclipse.microprofile.reactive.streams.operators.PublisherBuilder;
+import org.eclipse.microprofile.reactive.streams.operators.ReactiveStreams;
 
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
@@ -74,6 +73,10 @@ public class PulsarSource<T> {
     protected PulsarSource(PulsarClient pulsarClient, PulsarConnectorIncomingConfiguration pcic) {
         this.pulsarClient = pulsarClient;
         this.pcic = pcic;
+    }
+
+    protected PublisherBuilder<IncomingPulsarMessage<T>> createPublisher() {
+        return ReactiveStreams.<IncomingPulsarMessage<T>> fromPublisher(sourceUsingMessageListener());
     }
 
     private Uni<Consumer<T>> createConsumer() {

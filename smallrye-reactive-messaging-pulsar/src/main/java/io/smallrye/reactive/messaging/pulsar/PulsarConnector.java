@@ -9,7 +9,6 @@ import org.eclipse.microprofile.reactive.messaging.spi.Connector;
 import org.eclipse.microprofile.reactive.messaging.spi.IncomingConnectorFactory;
 import org.eclipse.microprofile.reactive.messaging.spi.OutgoingConnectorFactory;
 import org.eclipse.microprofile.reactive.streams.operators.PublisherBuilder;
-import org.eclipse.microprofile.reactive.streams.operators.ReactiveStreams;
 import org.eclipse.microprofile.reactive.streams.operators.SubscriberBuilder;
 
 import io.smallrye.reactive.messaging.annotations.ConnectorAttribute;
@@ -19,6 +18,7 @@ import io.smallrye.reactive.messaging.annotations.ConnectorAttribute;
  */
 @ApplicationScoped
 @Connector(PulsarConnector.CONNECTOR_NAME)
+//Consumer Properties
 @ConnectorAttribute(name = "topicNames", type = "string", mandatory = true, direction = ConnectorAttribute.Direction.INCOMING, description = "The list pulsar topic being consumed from or produced to")
 @ConnectorAttribute(name = "subscriptionName", type = "string", mandatory = true, direction = ConnectorAttribute.Direction.INCOMING, description = "The name of the supscription")
 @ConnectorAttribute(name = "subscriptionType", type = "org.apache.pulsar.client.api.SubscriptionType", mandatory = true, direction = ConnectorAttribute.Direction.INCOMING, description = "The subscription type, possible values Exclusive/Shared/Failover/Key_Shared")
@@ -45,6 +45,33 @@ import io.smallrye.reactive.messaging.annotations.ConnectorAttribute;
 @ConnectorAttribute(name = "subscriptionMode", type = "org.apache.pulsar.client.api.SubscriptionMode", direction = ConnectorAttribute.Direction.INCOMING, description = "")
 @ConnectorAttribute(name = "schemaType", type = "io.smallrye.reactive.messaging.pulsar.PulsarSource.SCHEMA_TYPE", direction = ConnectorAttribute.Direction.INCOMING, description = "")
 @ConnectorAttribute(name = "schema", type = "string", direction = ConnectorAttribute.Direction.INCOMING, description = "")
+
+//Producer Properties
+@ConnectorAttribute(name = "initialSequenceId", type = "long", direction = ConnectorAttribute.Direction.OUTGOING, description = "")
+@ConnectorAttribute(name = "chunkingEnabled", type = "boolean", direction = ConnectorAttribute.Direction.OUTGOING, description = "")
+@ConnectorAttribute(name = "encryptionKeys", type = "java.util.Set", direction = ConnectorAttribute.Direction.OUTGOING, description = "")
+@ConnectorAttribute(name = "batchingMaxMessages", type = "int", direction = ConnectorAttribute.Direction.OUTGOING, description = "")
+@ConnectorAttribute(name = "compressionType", type = "org.apache.pulsar.client.api.CompressionType", direction = ConnectorAttribute.Direction.OUTGOING, description = "")
+@ConnectorAttribute(name = "hashingScheme", type = "org.apache.pulsar.client.api.HashingScheme", direction = ConnectorAttribute.Direction.OUTGOING, description = "")
+@ConnectorAttribute(name = "maxPendingMessagesAcrossPartitions", type = "int", direction = ConnectorAttribute.Direction.OUTGOING, description = "")
+@ConnectorAttribute(name = "batchingEnabled", type = "boolean", direction = ConnectorAttribute.Direction.OUTGOING, description = "")
+@ConnectorAttribute(name = "sendTimeoutMs", type = "long", direction = ConnectorAttribute.Direction.OUTGOING, description = "")
+@ConnectorAttribute(name = "cryptoKeyReader", type = "org.apache.pulsar.client.api.CryptoKeyReader", direction = ConnectorAttribute.Direction.OUTGOING, description = "")
+@ConnectorAttribute(name = "autoUpdatePartitions", type = "boolean", direction = ConnectorAttribute.Direction.OUTGOING, description = "")
+@ConnectorAttribute(name = "customMessageRouter", type = "org.apache.pulsar.client.api.MessageRouter", direction = ConnectorAttribute.Direction.OUTGOING, description = "")
+@ConnectorAttribute(name = "batcherBuilder", type = "org.apache.pulsar.client.api.BatcherBuilder", direction = ConnectorAttribute.Direction.OUTGOING, description = "")
+@ConnectorAttribute(name = "messageCrypto", type = "org.apache.pulsar.client.api.MessageCrypto", direction = ConnectorAttribute.Direction.OUTGOING, description = "")
+@ConnectorAttribute(name = "blockIfQueueFull", type = "boolean", direction = ConnectorAttribute.Direction.OUTGOING, description = "")
+@ConnectorAttribute(name = "batchingMaxBytes", type = "int", direction = ConnectorAttribute.Direction.OUTGOING, description = "")
+@ConnectorAttribute(name = "batchingMaxPublishDelayMicros", type = "long", direction = ConnectorAttribute.Direction.OUTGOING, description = "")
+@ConnectorAttribute(name = "producerName", type = "string", direction = ConnectorAttribute.Direction.OUTGOING, description = "")
+@ConnectorAttribute(name = "batchingPartitionSwitchFrequencyByPublishDelay", type = "int", direction = ConnectorAttribute.Direction.OUTGOING, description = "")
+@ConnectorAttribute(name = "maxPendingMessages", type = "int", direction = ConnectorAttribute.Direction.OUTGOING, description = "")
+@ConnectorAttribute(name = "messageRoutingMode", type = "org.apache.pulsar.client.api.MessageRoutingMode", direction = ConnectorAttribute.Direction.OUTGOING, description = "")
+@ConnectorAttribute(name = "cryptoFailureAction", type = "org.apache.pulsar.client.api.ProducerCryptoFailureAction", direction = ConnectorAttribute.Direction.OUTGOING, description = "")
+@ConnectorAttribute(name = "multiSchema", type = "boolean", direction = ConnectorAttribute.Direction.OUTGOING, description = "")
+@ConnectorAttribute(name = "topicName", type = "string", direction = ConnectorAttribute.Direction.OUTGOING, description = "")
+@ConnectorAttribute(name = "properties", type = "java.util.SortedMap", direction = ConnectorAttribute.Direction.OUTGOING, description = "")
 public class PulsarConnector implements IncomingConnectorFactory, OutgoingConnectorFactory {
     static final String CONNECTOR_NAME = "smallrye-pulsar";
 
@@ -53,11 +80,14 @@ public class PulsarConnector implements IncomingConnectorFactory, OutgoingConnec
         PulsarConnectorIncomingConfiguration pcic = new PulsarConnectorIncomingConfiguration(config);
         PulsarClient pulsarClient = PulsarClientManager.getInstance().getPulsarClient(pcic);
         PulsarSource<? extends Message<?>> pulsarSource = new PulsarSource<IncomingPulsarMessage<?>>(pulsarClient, pcic);
-        return ReactiveStreams.fromPublisher(pulsarSource.sourceUsingMessageListener());
+        return pulsarSource.createPublisher();
     }
 
     @Override
     public SubscriberBuilder<? extends Message<?>, Void> getSubscriberBuilder(Config config) {
-        return null;
+        PulsarConnectorOutgoingConfiguration pcoc = new PulsarConnectorOutgoingConfiguration(config);
+        PulsarClient pulsarClient = PulsarClientManager.getInstance().getPulsarClient(pcoc);
+        PulsarSink<? extends Message<?>> pulsarSink = new PulsarSink<>(pulsarClient, pcoc);
+        return pulsarSink.sink();
     }
 }
